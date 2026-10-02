@@ -51,7 +51,7 @@ The state service and the processor create these indexes on startup. There is no
 
 ## Processor
 
-The processor is the only component that writes. The state service does not apply events.
+The processor is the only component that writes events and snapshots. The state service does not apply events.
 
 - Insert the event. A duplicate `deviceId` + `eventId` is ignored.
 - After every delivery, rebuild that device's snapshot from its events. Counters sum every accepted event of that kind. Each gauge comes from the newest event of its own kind. An equal `sequence` keeps the earlier event. A newer cpu event does not move `temperature`.
