@@ -66,6 +66,8 @@ Rebuilding a device snapshot sums that device's events in MongoDB. The work grow
 
 Ingest drops a line that is not a device event and leaves the socket open. A frame over 64 KiB closes the socket.
 
+End-to-end checks start the emulator in one scenario, and that scenario only waits for a device snapshot. The other scenarios write scripted lines to ingest, or insert an event and publish it to the queue.
+
 ## With more time
 
 A running counter in deduplicated buckets, or one transaction around the event insert and the snapshot update, would make each message a constant amount of work.
