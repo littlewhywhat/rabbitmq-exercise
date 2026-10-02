@@ -1,0 +1,13 @@
+{
+  "name": "@rabbitmq-exercise/processor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Not implemented.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@rabbitmq-exercise/contracts": "workspace:*"
+  }
+}

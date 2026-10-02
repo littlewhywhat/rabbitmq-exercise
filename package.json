@@ -1,0 +1,28 @@
+{
+  "name": "rabbitmq-exercise",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.3",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.x"
+  },
+  "volta": {
+    "node": "24.21.0",
+    "pnpm": "10.33.3"
+  },
+  "scripts": {
+    "lint": "biome check . && eslint .",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test",
+    "state": "pnpm --filter @rabbitmq-exercise/state start"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.5.0",
+    "eslint": "^9.36.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.44.0"
+  }
+}
