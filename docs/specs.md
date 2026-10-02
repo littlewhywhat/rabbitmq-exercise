@@ -54,9 +54,10 @@ The queue name is `telemetry`. Publishers send to RabbitMQ's default exchange wi
 
 ## Socket frame
 
-The emulator and ingest share a long-lived TCP connection. Each message is one UTF-8 JSON object terminated by `\n`.
+The emulator and ingest share long-lived TCP connections, one per device. Each message is one UTF-8 JSON object terminated by `\n`.
 
 ## Extra
 
+- [Emulator](emulator.md)
 - [Socket ingest](ingest.md)
 - [Processor](processor.md)

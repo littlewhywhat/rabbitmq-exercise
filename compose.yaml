@@ -83,3 +83,18 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+
+  emulator:
+    profiles: ['emulator']
+    build:
+      context: .
+      dockerfile: apps/emulator/Dockerfile
+    environment:
+      DEVICE_COUNT: ${DEVICE_COUNT:-2}
+      INTERVAL_MS: ${INTERVAL_MS:-1000}
+      INGEST_HOST: ingest
+      INGEST_PORT: '4000'
+      SEED: ${SEED:-1}
+    depends_on:
+      ingest:
+        condition: service_healthy
