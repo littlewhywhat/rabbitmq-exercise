@@ -62,7 +62,7 @@ docker compose up --build --scale processor=3
 
 ## Limits and compromises
 
-Rebuilding a device snapshot sums that device's events in MongoDB. The work grows with the number of events kept for the device. Reading the latest gauges stays one indexed lookup. The snapshot can lag until that rebuild finishes.
+Rebuilding a device snapshot sums that device's events in MongoDB. The work grows with the number of events kept for the device. Each latest gauge is one indexed lookup. The snapshot can lag until that rebuild finishes.
 
 Ingest drops a line that is not a device event and leaves the socket open. A frame over 64 KiB closes the socket.
 
