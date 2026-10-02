@@ -2,12 +2,22 @@
   "name": "@rabbitmq-exercise/processor",
   "version": "0.0.0",
   "private": true,
-  "description": "Not implemented.",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --testTimeout=120000 --hookTimeout=120000 --fileParallelism=false"
   },
   "dependencies": {
-    "@rabbitmq-exercise/contracts": "workspace:*"
+    "@rabbitmq-exercise/contracts": "workspace:*",
+    "amqplib": "^0.10.9",
+    "mongodb": "^6.20.0",
+    "pino": "^10.3.1",
+    "tsx": "^4.20.5"
+  },
+  "devDependencies": {
+    "@testcontainers/mongodb": "^11.5.0",
+    "@types/amqplib": "^0.10.8",
+    "vitest": "^3.2.4"
   }
 }

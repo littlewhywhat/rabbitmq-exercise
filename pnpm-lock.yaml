@@ -63,6 +63,28 @@ importers:
       '@rabbitmq-exercise/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      amqplib:
+        specifier: ^0.10.9
+        version: 0.10.9
+      mongodb:
+        specifier: ^6.20.0
+        version: 6.21.0
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
+      tsx:
+        specifier: ^4.20.5
+        version: 4.23.15
+    devDependencies:
+      '@testcontainers/mongodb':
+        specifier: ^11.5.0
+        version: 11.14.0
+      '@types/amqplib':
+        specifier: ^0.10.8
+        version: 0.10.8
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@24.19.1)(tsx@4.23.15)(yaml@2.9.1)
 
   apps/state:
     dependencies:

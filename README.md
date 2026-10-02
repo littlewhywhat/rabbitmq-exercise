@@ -11,7 +11,7 @@ Devices send telemetry over a long-lived socket. Ingest publishes each event to 
 docker compose up --build
 ```
 
-The state service listens on port 3000.
+The state service listens on port 3000. The processor reads the `telemetry` queue. RabbitMQ accepts user `telemetry` with password `telemetry`.
 
 - `GET /health`
 - `GET /devices/:deviceId`

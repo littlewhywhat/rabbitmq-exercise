@@ -58,3 +58,4 @@ The emulator and ingest share a long-lived TCP connection. Each message is one U
 ## Extra
 
 - [Socket ingest](ingest.md)
+- [Processor](processor.md)
