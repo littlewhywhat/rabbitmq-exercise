@@ -24,12 +24,11 @@ trap cleanup EXIT
 export DEVICE_COUNT=1
 export INTERVAL_MS=500
 export SEED=1
-export BUILDKIT_PROGRESS=plain
 
-docker version
+echo "starting mongo, rabbitmq, state, ingest, processor, emulator"
 docker compose version
-docker compose --profile emulator config >/dev/null
 docker compose --profile emulator up --build --wait --wait-timeout 300
+echo "stack is up"
 
 python3 - <<'PY'
 import json
@@ -87,6 +86,7 @@ expected = {
     "temperature": 21.5,
     "operationCount": 3,
 }
+print("device-e2e", json.dumps(snapshot, sort_keys=True))
 if snapshot != expected:
     raise SystemExit(f"snapshot mismatch: {snapshot}")
 
@@ -94,6 +94,7 @@ events = wait_for(
     "/devices/device-e2e/events",
     lambda body: any(event.get("eventId") == "e2e-1" for event in body),
 )
+print("device-e2e events", json.dumps(events, sort_keys=True))
 if events != [payload]:
     raise SystemExit(f"events mismatch: {events}")
 
@@ -101,5 +102,6 @@ emulator = wait_for(
     "/devices/device-1",
     lambda body: body.get("operationCount", 0) >= 1,
 )
-print("e2e ok", json.dumps({"snapshot": snapshot, "emulator": emulator}))
+print("device-1", json.dumps(emulator, sort_keys=True))
+print("e2e ok")
 PY
