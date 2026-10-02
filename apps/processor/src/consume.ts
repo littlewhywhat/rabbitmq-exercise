@@ -1,7 +1,8 @@
 import {
   type DeviceEvent,
   deviceEventSchema,
-  TELEMETRY_QUEUE,
+  partitionQueue,
+  singleActiveConsumer,
 } from '@rabbitmq-exercise/contracts';
 import type { Channel, ChannelModel, ConsumeMessage } from 'amqplib';
 import type { Db } from 'mongodb';
@@ -46,15 +47,22 @@ export const consumeTelemetry = async (
   connection: ChannelModel,
   db: Db,
   log: Logger,
+  partitions: number[],
 ): Promise<Channel> => {
   const channel = await connection.createChannel();
-  await channel.assertQueue(TELEMETRY_QUEUE, { durable: true });
   await channel.prefetch(1);
-  await channel.consume(TELEMETRY_QUEUE, (message) => {
-    if (message === null) {
-      return;
-    }
-    void handleDelivery(channel, db, message, log);
-  });
+  for (const index of partitions) {
+    const queue = partitionQueue(index);
+    await channel.assertQueue(queue, {
+      durable: true,
+      arguments: singleActiveConsumer,
+    });
+    await channel.consume(queue, (message) => {
+      if (message === null) {
+        return;
+      }
+      void handleDelivery(channel, db, message, log);
+    });
+  }
   return channel;
 };

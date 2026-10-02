@@ -54,14 +54,15 @@ The state service and the processor create these indexes on startup. There is no
 The processor is the only component that writes events and snapshots. The state service does not apply events.
 
 - Insert the event. A duplicate `deviceId` + `eventId` is ignored.
-- After every delivery, rebuild that device's snapshot from its events. Counters sum every accepted event of that kind. Each gauge comes from the newest event of its own kind. An equal `sequence` keeps the earlier event. A newer cpu event does not move `temperature`.
-- Replace the stored snapshot only when the rebuild includes more events than the one already stored.
+- When that device already has a snapshot and the event is new, fold the event into the snapshot. Counters add that event. Each gauge moves only when its own `sequence` is newer. An equal `sequence` keeps the stored gauge. A newer cpu event does not move `temperature`.
+- When the snapshot is missing, or the event was already stored, rebuild the snapshot from that device's events.
+- Replace the stored snapshot only when the new `eventCount` is higher.
 
 Deleting `device_states` leaves the event log. The next delivery rebuilds that device's snapshot.
 
 ## Queue
 
-The queue name is `telemetry`. Publishers send to RabbitMQ's default exchange with routing key `telemetry`. Consumers read that queue.
+Four queues are named `telemetry-0` through `telemetry-3`. A publisher sends a device to the queue selected by a hash of `deviceId`. A processor reads the queues listed in `PARTITIONS`, or all four when that variable is unset. Each queue has one active consumer.
 
 ## Socket frame
 

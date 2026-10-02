@@ -9,6 +9,7 @@ import {
   telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import { type Db, type Document, MongoServerError } from 'mongodb';
+import { type FoldSnapshot, fold } from './fold';
 
 const REBUILD_ATTEMPTS = 5;
 
@@ -22,6 +23,10 @@ type StoredSnapshot = {
   cpu: number | null;
   ram: number | null;
   diagnostic: { code: string; message: string } | null;
+  telemetrySequence: number | null;
+  cpuSequence: number | null;
+  ramSequence: number | null;
+  diagnosticSequence: number | null;
 };
 
 const duplicateKey = (error: unknown): boolean =>
@@ -104,6 +109,10 @@ const readSnapshot = async (
       diagnostic === null
         ? null
         : { code: diagnostic.code, message: diagnostic.message },
+    telemetrySequence: telemetry?.sequence ?? null,
+    cpuSequence: cpu?.sequence ?? null,
+    ramSequence: ram?.sequence ?? null,
+    diagnosticSequence: diagnostic?.sequence ?? null,
   };
 };
 
@@ -123,6 +132,10 @@ const writeSnapshot = async (
     poweredOn: snapshot.poweredOn,
     diagnostic: snapshot.diagnostic,
     eventCount: snapshot.eventCount,
+    telemetrySequence: snapshot.telemetrySequence,
+    cpuSequence: snapshot.cpuSequence,
+    ramSequence: snapshot.ramSequence,
+    diagnosticSequence: snapshot.diagnosticSequence,
   };
   const updated = await db
     .collection(DEVICE_STATES_COLLECTION)
@@ -143,6 +156,39 @@ const writeSnapshot = async (
     }
     throw error;
   }
+};
+
+const readFold = async (
+  db: Db,
+  deviceId: string,
+): Promise<(FoldSnapshot & { eventCount: number }) | null> =>
+  db
+    .collection<FoldSnapshot & { eventCount: number }>(DEVICE_STATES_COLLECTION)
+    .findOne({ deviceId }, { projection: { _id: 0 } });
+
+const foldSnapshot = async (db: Db, event: DeviceEvent): Promise<boolean> => {
+  const current = await readFold(db, event.deviceId);
+  if (current === null) {
+    return false;
+  }
+
+  const next = fold(current, event);
+  const outcome = await writeSnapshot(db, event.deviceId, {
+    operationCount: next.operationCount,
+    poweredOn: next.poweredOn,
+    eventCount: current.eventCount + 1,
+    lastSequence: next.lastSequence,
+    status: next.status,
+    temperature: next.temperature,
+    cpu: next.cpu,
+    ram: next.ram,
+    diagnostic: next.diagnostic,
+    telemetrySequence: next.telemetrySequence,
+    cpuSequence: next.cpuSequence,
+    ramSequence: next.ramSequence,
+    diagnosticSequence: next.diagnosticSequence,
+  });
+  return outcome === 'written';
 };
 
 const rebuildSnapshot = async (db: Db, deviceId: string): Promise<void> => {
@@ -180,6 +226,14 @@ export const apply = async (
     outcome = 'duplicate';
   }
 
-  await rebuildSnapshot(db, event.deviceId);
+  if (outcome === 'inserted') {
+    const folded = await foldSnapshot(db, event);
+    if (!folded) {
+      await rebuildSnapshot(db, event.deviceId);
+    }
+  } else {
+    await rebuildSnapshot(db, event.deviceId);
+  }
+
   return outcome;
 };
