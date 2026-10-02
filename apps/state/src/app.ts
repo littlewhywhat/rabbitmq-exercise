@@ -11,6 +11,8 @@ type BuildAppOptions = {
   logger: boolean;
 };
 
+export const EVENT_READ_LIMIT = 100;
+
 export const ensureIndexes = async (db: Db): Promise<void> => {
   await db
     .collection(DEVICE_STATES_COLLECTION)
@@ -47,6 +49,7 @@ export const buildApp = (db: Db, options: BuildAppOptions): FastifyInstance => {
         .collection(EVENTS_COLLECTION)
         .find({ deviceId: request.params.deviceId })
         .sort({ sequence: 1 })
+        .limit(EVENT_READ_LIMIT)
         .toArray();
 
       return documents.map((document) => telemetryEventSchema.parse(document));

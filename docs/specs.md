@@ -35,6 +35,8 @@ One document per device.
 
 The state service creates these indexes on startup. There is no migration tool. The Zod schemas in `packages/contracts` are the document shapes.
 
+`GET /devices/:deviceId/events` returns at most 100 events, the lowest `sequence` values first.
+
 ## Processor
 
 The processor is the only component that writes. The state service does not apply events.
