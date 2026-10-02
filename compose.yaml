@@ -11,6 +11,9 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: telemetry
+      RABBITMQ_DEFAULT_PASS: telemetry
     ports:
       - '5672:5672'
       - '15672:15672'
@@ -50,7 +53,7 @@ services:
       dockerfile: apps/ingest/Dockerfile
     environment:
       PORT: '4000'
-      RABBITMQ_URL: amqp://rabbitmq:5672
+      RABBITMQ_URL: amqp://telemetry:telemetry@rabbitmq:5672
     ports:
       - '4000:4000'
     depends_on:
@@ -66,3 +69,17 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+
+  processor:
+    build:
+      context: .
+      dockerfile: apps/processor/Dockerfile
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/telemetry?directConnection=true
+      MONGODB_DB: telemetry
+      RABBITMQ_URL: amqp://telemetry:telemetry@rabbitmq:5672
+    depends_on:
+      mongo:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy

@@ -28,12 +28,13 @@ One document per device.
 
 ## Collections and indexes
 
-| Collection | Unique index |
+| Collection | Index |
 |---|---|
-| `device_states` | `deviceId` |
-| `events` | `deviceId` + `eventId` |
+| `device_states` | unique `deviceId` |
+| `events` | unique `deviceId` + `eventId` |
+| `events` | `deviceId` + `sequence` |
 
-The state service creates these indexes on startup. There is no migration tool. The Zod schemas in `packages/contracts` are the document shapes.
+The state service and the processor create these indexes on startup. There is no migration tool. The Zod schemas in `packages/contracts` are the document shapes. The stored snapshot also has `eventCount`, how many events that snapshot includes. The state service does not return it.
 
 `GET /devices/:deviceId/events` returns at most 100 events, the lowest `sequence` values first.
 
@@ -41,11 +42,11 @@ The state service creates these indexes on startup. There is no migration tool. 
 
 The processor is the only component that writes. The state service does not apply events.
 
-- Insert the event. A duplicate `deviceId` + `eventId` is ignored, so `operationCount` does not move twice.
-- A new event always adds `operations` to `operationCount`.
-- `status` and `temperature` change only when `sequence` is greater than `lastSequence`.
+- Insert the event. A duplicate `deviceId` + `eventId` is ignored.
+- After every delivery, rebuild that device's snapshot from its events. `operationCount` is the sum of `operations`. `status` and `temperature` come from the highest `sequence`. An equal `sequence` keeps the earlier event.
+- Replace the stored snapshot only when the rebuild includes more events than the one already stored.
 
-Deleting `device_states` leaves the event log. Replaying that log with the same rules rebuilds the snapshots.
+Deleting `device_states` leaves the event log. The next delivery rebuilds that device's snapshot.
 
 ## Queue
 
@@ -58,3 +59,4 @@ The emulator and ingest share a long-lived TCP connection. Each message is one U
 ## Extra
 
 - [Socket ingest](ingest.md)
+- [Processor](processor.md)

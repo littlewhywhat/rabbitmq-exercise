@@ -11,7 +11,7 @@ Devices send telemetry over a long-lived socket. Ingest publishes each event to 
 docker compose up --build
 ```
 
-The state service listens on port 3000.
+The state service listens on port 3000. The processor reads the `telemetry` queue. RabbitMQ accepts user `telemetry` with password `telemetry`.
 
 - `GET /health`
 - `GET /devices/:deviceId`
@@ -42,8 +42,8 @@ TODO
 
 ## Limits and compromises
 
-TODO
+Rebuilding a device snapshot sums that device's events in MongoDB. The work grows with the number of events kept for the device. Reading the latest gauges stays one indexed lookup.
 
 ## With more time
 
-TODO
+A running counter in deduplicated buckets, or one transaction around the event insert and the snapshot update, would make each message a constant amount of work.
