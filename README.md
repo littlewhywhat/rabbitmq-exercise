@@ -29,3 +29,19 @@ pnpm test
 ```
 
 The state service test writes one device snapshot and one telemetry event into MongoDB and reads both back through the endpoints.
+
+## Emulator configuration
+
+TODO
+
+## Multiple instances
+
+TODO
+
+## Limits and compromises
+
+TODO
+
+## With more time
+
+TODO
