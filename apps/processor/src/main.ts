@@ -1,3 +1,4 @@
+import { parsePartitionCount } from '@rabbitmq-exercise/contracts';
 import amqp from 'amqplib';
 import { MongoClient } from 'mongodb';
 import pino from 'pino';
@@ -22,9 +23,10 @@ const main = async (): Promise<void> => {
   await ensureIndexes(db);
   log.info({ db: databaseName }, 'indexes ready');
 
+  const partitionCount = parsePartitionCount(process.env.PARTITION_COUNT);
   const connection = await amqp.connect(rabbitUrl);
-  const channel = await consumeTelemetry(connection, db, log);
-  log.info('consuming telemetry');
+  const channel = await consumeTelemetry(connection, db, log, partitionCount);
+  log.info({ partitionCount }, 'consuming telemetry');
 
   const shutdown = async (): Promise<void> => {
     await channel.close();

@@ -79,11 +79,19 @@ def mongo(script: str) -> None:
         raise SystemExit(f"mongosh failed\n{result.stdout}\n{result.stderr}")
 
 
+def partition_index(device_id: str, count: int = 4) -> int:
+    # Same mix as partitionIndex in packages/contracts.
+    hash_value = 0
+    for char in device_id:
+        hash_value = ((hash_value * 31) + ord(char)) & 0xFFFFFFFF
+    return hash_value % count
+
+
 def publish(payload: dict) -> None:
     body = json.dumps(
         {
             "properties": {"content_type": "application/json", "delivery_mode": 2},
-            "routing_key": "telemetry",
+            "routing_key": f"telemetry-{partition_index(payload['deviceId'])}",
             "payload": json.dumps(payload, separators=(",", ":")),
             "payload_encoding": "string",
         }

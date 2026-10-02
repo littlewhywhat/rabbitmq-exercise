@@ -9,6 +9,7 @@ import {
   telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import { type Db, type Document, MongoServerError } from 'mongodb';
+import { type FoldSnapshot, fold } from './fold';
 
 const REBUILD_ATTEMPTS = 5;
 
@@ -22,6 +23,10 @@ type StoredSnapshot = {
   cpu: number | null;
   ram: number | null;
   diagnostic: { code: string; message: string } | null;
+  telemetrySequence: number | null;
+  cpuSequence: number | null;
+  ramSequence: number | null;
+  diagnosticSequence: number | null;
 };
 
 const duplicateKey = (error: unknown): boolean =>
@@ -104,6 +109,10 @@ const readSnapshot = async (
       diagnostic === null
         ? null
         : { code: diagnostic.code, message: diagnostic.message },
+    telemetrySequence: telemetry?.sequence ?? null,
+    cpuSequence: cpu?.sequence ?? null,
+    ramSequence: ram?.sequence ?? null,
+    diagnosticSequence: diagnostic?.sequence ?? null,
   };
 };
 
@@ -123,6 +132,10 @@ const writeSnapshot = async (
     poweredOn: snapshot.poweredOn,
     diagnostic: snapshot.diagnostic,
     eventCount: snapshot.eventCount,
+    telemetrySequence: snapshot.telemetrySequence,
+    cpuSequence: snapshot.cpuSequence,
+    ramSequence: snapshot.ramSequence,
+    diagnosticSequence: snapshot.diagnosticSequence,
   };
   const updated = await db
     .collection(DEVICE_STATES_COLLECTION)
@@ -143,6 +156,80 @@ const writeSnapshot = async (
     }
     throw error;
   }
+};
+
+const sequenceOrNull = (value: unknown): number | null =>
+  typeof value === 'number' ? value : null;
+
+const readFold = async (
+  db: Db,
+  deviceId: string,
+): Promise<(FoldSnapshot & { eventCount: number }) | null> => {
+  const document = await db
+    .collection(DEVICE_STATES_COLLECTION)
+    .findOne({ deviceId });
+  if (document === null || typeof document.eventCount !== 'number') {
+    return null;
+  }
+
+  return {
+    deviceId,
+    lastSequence:
+      typeof document.lastSequence === 'number' ? document.lastSequence : 0,
+    status:
+      document.status === 'up' || document.status === 'down'
+        ? document.status
+        : null,
+    temperature:
+      typeof document.temperature === 'number' ? document.temperature : null,
+    operationCount:
+      typeof document.operationCount === 'number' ? document.operationCount : 0,
+    cpu: typeof document.cpu === 'number' ? document.cpu : null,
+    ram: typeof document.ram === 'number' ? document.ram : null,
+    poweredOn: typeof document.poweredOn === 'number' ? document.poweredOn : 0,
+    diagnostic:
+      document.diagnostic !== null &&
+      typeof document.diagnostic === 'object' &&
+      'code' in document.diagnostic &&
+      'message' in document.diagnostic &&
+      typeof document.diagnostic.code === 'string' &&
+      typeof document.diagnostic.message === 'string'
+        ? {
+            code: document.diagnostic.code,
+            message: document.diagnostic.message,
+          }
+        : null,
+    telemetrySequence: sequenceOrNull(document.telemetrySequence),
+    cpuSequence: sequenceOrNull(document.cpuSequence),
+    ramSequence: sequenceOrNull(document.ramSequence),
+    diagnosticSequence: sequenceOrNull(document.diagnosticSequence),
+    eventCount: document.eventCount,
+  };
+};
+
+const foldSnapshot = async (db: Db, event: DeviceEvent): Promise<boolean> => {
+  const current = await readFold(db, event.deviceId);
+  if (current === null) {
+    return false;
+  }
+
+  const next = fold(current, event);
+  const outcome = await writeSnapshot(db, event.deviceId, {
+    operationCount: next.operationCount,
+    poweredOn: next.poweredOn,
+    eventCount: current.eventCount + 1,
+    lastSequence: next.lastSequence,
+    status: next.status,
+    temperature: next.temperature,
+    cpu: next.cpu,
+    ram: next.ram,
+    diagnostic: next.diagnostic,
+    telemetrySequence: next.telemetrySequence,
+    cpuSequence: next.cpuSequence,
+    ramSequence: next.ramSequence,
+    diagnosticSequence: next.diagnosticSequence,
+  });
+  return outcome === 'written';
 };
 
 const rebuildSnapshot = async (db: Db, deviceId: string): Promise<void> => {
@@ -180,6 +267,14 @@ export const apply = async (
     outcome = 'duplicate';
   }
 
-  await rebuildSnapshot(db, event.deviceId);
+  if (outcome === 'inserted') {
+    const folded = await foldSnapshot(db, event);
+    if (!folded) {
+      await rebuildSnapshot(db, event.deviceId);
+    }
+  } else {
+    await rebuildSnapshot(db, event.deviceId);
+  }
+
   return outcome;
 };
