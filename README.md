@@ -70,7 +70,7 @@ End-to-end checks start the emulator in one scenario, and that scenario only wai
 
 ## With more time
 
-With RabbitMQ you can use partitions, and you choose how many partitions the devices share. Each device stays on one partition, which helps solve the growing cost of summing its events.
+With RabbitMQ you can use partitions, and you choose how many partitions the devices share. Each device stays on one partition, which helps solve the growing cost of summing its events because we don't have a problem of race conditions anymore that is addressed by event count in the current solution. 
 
 A refactor and deduplication would come next.
 
