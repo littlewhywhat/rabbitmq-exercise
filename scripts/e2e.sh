@@ -8,7 +8,7 @@ dump() {
   echo "===== ps ====="
   docker compose --profile emulator ps -a || true
   echo "===== app logs ====="
-  docker compose --profile emulator logs --no-color --tail 30 state ingest processor emulator || true
+  docker compose --profile emulator logs --no-color --tail 30 ingest processor emulator || true
 }
 
 cleanup() {
@@ -25,7 +25,7 @@ export DEVICE_COUNT=1
 export INTERVAL_MS=500
 export SEED=1
 
-echo "starting mongo, rabbitmq, state, ingest, processor, emulator"
+echo "starting mongo, rabbitmq, ingest, processor, emulator"
 docker compose version
 docker compose --profile emulator up --build --wait --wait-timeout 300
 echo "stack is up"

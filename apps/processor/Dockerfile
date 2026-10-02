@@ -9,7 +9,6 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY packages/contracts/package.json packages/contracts/package.json
-COPY apps/state/package.json apps/state/package.json
 COPY apps/processor/package.json apps/processor/package.json
 COPY apps/ingest/package.json apps/ingest/package.json
 COPY apps/emulator/package.json apps/emulator/package.json

@@ -23,30 +23,6 @@ services:
       timeout: 5s
       retries: 20
 
-  state:
-    build:
-      context: .
-      dockerfile: apps/state/Dockerfile
-    environment:
-      PORT: '3000'
-      MONGODB_URI: mongodb://mongo:27017/telemetry?directConnection=true
-      MONGODB_DB: telemetry
-    ports:
-      - '3000:3000'
-    depends_on:
-      mongo:
-        condition: service_healthy
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:3000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 10s
-
   ingest:
     build:
       context: .

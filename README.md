@@ -1,6 +1,6 @@
 # ingest telemetrie service
 
-Devices send telemetry over a long-lived socket. Ingest publishes each event to RabbitMQ. The processor stores the event and the current device snapshot in MongoDB. The state service reads that snapshot and the device's events.
+Devices send telemetry over a long-lived socket. Ingest publishes each event to RabbitMQ. The processor stores the event and the current device snapshot in MongoDB.
 
 - [Architecture](docs/architecture.md)
 - [Specs](docs/specs.md)
@@ -11,11 +11,7 @@ Devices send telemetry over a long-lived socket. Ingest publishes each event to 
 docker compose up --build
 ```
 
-The state service listens on port 3000. The processor reads the `telemetry` queue. RabbitMQ accepts user `telemetry` with password `telemetry`.
-
-- `GET /health`
-- `GET /devices/:deviceId`
-- `GET /devices/:deviceId/events`
+The processor reads the `telemetry` queue. RabbitMQ accepts user `telemetry` with password `telemetry`.
 
 The ingest service listens on port 4000.
 
@@ -29,8 +25,6 @@ pnpm lint
 pnpm typecheck
 pnpm test
 ```
-
-The state service test writes one device snapshot and one telemetry event into MongoDB and reads both back through the endpoints.
 
 The emulator test checks that a seed repeats each event, and that each device sends events on its own socket, including after the socket drops.
 
@@ -66,7 +60,7 @@ Rebuilding a device snapshot sums that device's events in MongoDB. The work grow
 
 Ingest drops a line that is not a device event and leaves the socket open. A frame over 64 KiB closes the socket.
 
-End-to-end checks start the emulator in one scenario, and that scenario only waits for a device snapshot. The other scenarios write scripted lines to ingest, or insert an event and publish it to the queue.
+End-to-end checks read snapshots and events from MongoDB. They start the emulator in one scenario, and that scenario only waits for a device snapshot. The other scenarios write scripted lines to ingest, or insert an event and publish it to the queue.
 
 ## With more time
 

@@ -7,7 +7,6 @@ import os
 import socket
 import subprocess
 import time
-import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -56,7 +55,7 @@ def wait_until(predicate, timeout: float, message: str) -> None:
     raise SystemExit(message)
 
 
-def mongo(script: str) -> None:
+def mongo(script: str) -> str:
     result = subprocess.run(
         [
             "docker",
@@ -77,6 +76,33 @@ def mongo(script: str) -> None:
     )
     if result.returncode != 0:
         raise SystemExit(f"mongosh failed\n{result.stdout}\n{result.stderr}")
+    return result.stdout
+
+
+def query(script: str):
+    raw = mongo(script).strip()
+    if raw == "" or raw == "null":
+        return None
+    return json.loads(raw)
+
+
+def device_snapshot(device_id: str):
+    return query(
+        "const doc = db.device_states.findOne({deviceId: "
+        + json.dumps(device_id)
+        + "});\n"
+        "if (!doc) { print('null'); }\n"
+        "else { delete doc._id; delete doc.eventCount; print(JSON.stringify(doc)); }\n"
+    )
+
+
+def device_events(device_id: str):
+    body = query(
+        "print(JSON.stringify(db.events.find({deviceId: "
+        + json.dumps(device_id)
+        + "}, {_id: 0}).sort({sequence: 1}).toArray()));\n"
+    )
+    return [] if body is None else body
 
 
 def publish(payload: dict) -> None:
@@ -118,24 +144,16 @@ def send_event(payload: dict) -> None:
     send_lines([json.dumps(payload, separators=(",", ":"))])
 
 
-def get(path: str):
-    try:
-        with urllib.request.urlopen("http://127.0.0.1:3000" + path, timeout=5) as response:
-            return response.status, json.load(response)
-    except urllib.error.HTTPError as error:
-        return error.code, None
-
-
-def wait_for(path: str, accept, timeout: float = 45):
+def wait_for(read, accept, timeout: float = 45):
     deadline = time.time() + timeout
     last = None
     while time.time() < deadline:
-        status, body = get(path)
-        last = (status, body)
-        if status == 200 and accept(body):
+        body = read()
+        last = body
+        if body is not None and accept(body):
             return body
         time.sleep(0.5)
-    raise SystemExit(f"timed out waiting for {path}: {last}")
+    raise SystemExit(f"timed out waiting for document: {last}")
 
 
 def show(label: str, body) -> None:
@@ -178,7 +196,7 @@ def synthetic() -> None:
     show(
         "device-e2e",
         wait_for(
-            "/devices/device-e2e",
+            lambda: device_snapshot("device-e2e"),
             lambda body: body
             == snapshot(
                 "device-e2e",
@@ -191,7 +209,7 @@ def synthetic() -> None:
     )
     show(
         "device-e2e events",
-        wait_for("/devices/device-e2e/events", lambda body: body == [payload]),
+        wait_for(lambda: device_events("device-e2e"), lambda body: body == [payload]),
     )
 
 
@@ -201,7 +219,7 @@ def emulator() -> None:
         show(
             "device-1",
             wait_for(
-                "/devices/device-1",
+                lambda: device_snapshot("device-1"),
                 lambda body: body.get("deviceId") == "device-1"
                 and isinstance(body.get("lastSequence"), int),
             ),
@@ -232,7 +250,7 @@ def duplicate() -> None:
     }
     send_event(first)
     wait_for(
-        "/devices/device-dup",
+        lambda: device_snapshot("device-dup"),
         lambda body: body.get("operationCount") == 5,
     )
     send_lines(
@@ -247,7 +265,7 @@ def duplicate() -> None:
     show(
         "device-dup",
         wait_for(
-            "/devices/device-dup",
+            lambda: device_snapshot("device-dup"),
             lambda body: body
             == snapshot(
                 "device-dup",
@@ -260,7 +278,9 @@ def duplicate() -> None:
     )
     show(
         "device-dup events",
-        wait_for("/devices/device-dup/events", lambda body: body == [first, second]),
+        wait_for(
+            lambda: device_events("device-dup"), lambda body: body == [first, second]
+        ),
     )
 
 
@@ -285,12 +305,15 @@ def older_sequence() -> None:
         "operations": 2,
     }
     send_event(newer)
-    wait_for("/devices/device-order", lambda body: body.get("lastSequence") == 5)
+    wait_for(
+        lambda: device_snapshot("device-order"),
+        lambda body: body.get("lastSequence") == 5,
+    )
     send_event(older)
     show(
         "device-order",
         wait_for(
-            "/devices/device-order",
+            lambda: device_snapshot("device-order"),
             lambda body: body
             == snapshot(
                 "device-order",
@@ -304,7 +327,7 @@ def older_sequence() -> None:
     show(
         "device-order events",
         wait_for(
-            "/devices/device-order/events",
+            lambda: device_events("device-order"),
             lambda body: body == [older, newer],
         ),
     )
@@ -325,7 +348,7 @@ def broken_line() -> None:
     show(
         "device-bad",
         wait_for(
-            "/devices/device-bad",
+            lambda: device_snapshot("device-bad"),
             lambda body: body
             == snapshot(
                 "device-bad",
@@ -338,7 +361,7 @@ def broken_line() -> None:
     )
     show(
         "device-bad events",
-        wait_for("/devices/device-bad/events", lambda body: body == [valid]),
+        wait_for(lambda: device_events("device-bad"), lambda body: body == [valid]),
     )
 
 
@@ -363,9 +386,8 @@ def crash_after_insert() -> None:
             "if (existing) { throw new Error('snapshot already exists'); }\n"
             "db.events.insertOne(" + json.dumps(payload) + ");\n"
         )
-        status, _body = get("/devices/device-crash")
-        if status != 404:
-            raise SystemExit(f"snapshot existed before redelivery: {status}")
+        if device_snapshot("device-crash") is not None:
+            raise SystemExit("snapshot existed before redelivery")
         publish(payload)
         compose("start", "processor")
         wait_until(
@@ -376,7 +398,7 @@ def crash_after_insert() -> None:
         show(
             "device-crash",
             wait_for(
-                "/devices/device-crash",
+                lambda: device_snapshot("device-crash"),
                 lambda body: body
                 == snapshot(
                     "device-crash",
@@ -390,7 +412,9 @@ def crash_after_insert() -> None:
         )
         show(
             "device-crash events",
-            wait_for("/devices/device-crash/events", lambda body: body == [payload]),
+            wait_for(
+                lambda: device_events("device-crash"), lambda body: body == [payload]
+            ),
         )
     finally:
         subprocess.run(
@@ -433,7 +457,7 @@ def two_processors() -> None:
     show(
         "device-multi",
         wait_for(
-            "/devices/device-multi",
+            lambda: device_snapshot("device-multi"),
             lambda body: body
             == snapshot(
                 "device-multi",
@@ -447,7 +471,7 @@ def two_processors() -> None:
     )
     show(
         "device-multi events",
-        wait_for("/devices/device-multi/events", lambda body: body == events, 60),
+        wait_for(lambda: device_events("device-multi"), lambda body: body == events, 60),
     )
 
 

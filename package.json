@@ -15,7 +15,6 @@
     "lint": "biome check . && eslint .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
-    "state": "pnpm --filter @rabbitmq-exercise/state start",
     "processor": "pnpm --filter @rabbitmq-exercise/processor start",
     "emulator": "pnpm --filter @rabbitmq-exercise/emulator start"
   },
