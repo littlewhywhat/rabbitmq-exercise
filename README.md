@@ -71,3 +71,5 @@ End-to-end checks start the emulator in one scenario, and that scenario only wai
 ## With more time
 
 A running counter in deduplicated buckets, or one transaction around the event insert and the snapshot update, would make each message a constant amount of work.
+
+Performance stress tests would store many events per device and send a large number of messages.
