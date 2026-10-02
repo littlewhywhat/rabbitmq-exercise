@@ -21,7 +21,11 @@ trap cleanup EXIT
 export DEVICE_COUNT=1
 export INTERVAL_MS=500
 export SEED=1
+export BUILDKIT_PROGRESS=plain
 
+docker version
+docker compose version
+docker compose --profile emulator config >/dev/null
 docker compose --profile emulator up --build --wait --wait-timeout 300
 
 python3 - <<'PY'

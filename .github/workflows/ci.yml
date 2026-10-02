@@ -46,6 +46,21 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - run: bash scripts/e2e.sh
+      - run: bash scripts/e2e.sh > "$RUNNER_TEMP/e2e.log" 2>&1
+      - if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo 'e2e failed'
+            echo
+            echo '````'
+            tail -n 180 "$RUNNER_TEMP/e2e.log"
+            echo '````'
+          } > "$RUNNER_TEMP/e2e-comment.md"
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/e2e-comment.md"
