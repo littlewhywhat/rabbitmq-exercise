@@ -52,7 +52,13 @@ Raise `DEVICE_COUNT` to add devices.
 
 ## Multiple instances
 
-TODO
+Ingest replicas publish to the same `telemetry` queue. A load balancer in front of them spreads device connections. This compose file does not run that balancer.
+
+The processor has no host port. Replicas read that queue, one message at a time:
+
+```bash
+docker compose up --build --scale processor=3
+```
 
 ## Limits and compromises
 
