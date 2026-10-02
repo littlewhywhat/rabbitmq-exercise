@@ -16,6 +16,10 @@ const device: DeviceState = {
   status: 'up',
   temperature: 41.5,
   operationCount: 3,
+  cpu: null,
+  ram: null,
+  poweredOn: 0,
+  diagnostic: null,
 };
 
 const event: TelemetryEvent = {

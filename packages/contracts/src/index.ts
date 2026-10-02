@@ -2,24 +2,80 @@ import { z } from 'zod';
 
 export const deviceStatusSchema = z.enum(['up', 'down']);
 
-export const telemetryEventSchema = z.object({
-  type: z.literal('telemetry'),
+const eventEnvelope = {
   eventId: z.string().min(1),
   deviceId: z.string().min(1),
   sequence: z.number().int().nonnegative(),
+};
+
+export const telemetryEventSchema = z.object({
+  type: z.literal('telemetry'),
+  ...eventEnvelope,
   status: deviceStatusSchema,
   temperature: z.number(),
   operations: z.number().int().nonnegative(),
 });
 
+export const cpuEventSchema = z.object({
+  type: z.literal('cpu'),
+  ...eventEnvelope,
+  cpu: z.number(),
+});
+
+export const ramEventSchema = z.object({
+  type: z.literal('ram'),
+  ...eventEnvelope,
+  ram: z.number(),
+});
+
+export const poweredOnEventSchema = z.object({
+  type: z.literal('powered_on'),
+  ...eventEnvelope,
+  poweredOn: z.number().int().nonnegative(),
+});
+
+export const diagnosticEventSchema = z.object({
+  type: z.literal('diagnostic'),
+  ...eventEnvelope,
+  code: z.string().min(1),
+  message: z.string().min(1),
+});
+
+export const deviceEventSchema = z.discriminatedUnion('type', [
+  telemetryEventSchema,
+  cpuEventSchema,
+  ramEventSchema,
+  poweredOnEventSchema,
+  diagnosticEventSchema,
+]);
+
 export type TelemetryEvent = z.infer<typeof telemetryEventSchema>;
+
+export type CpuEvent = z.infer<typeof cpuEventSchema>;
+
+export type RamEvent = z.infer<typeof ramEventSchema>;
+
+export type PoweredOnEvent = z.infer<typeof poweredOnEventSchema>;
+
+export type DiagnosticEvent = z.infer<typeof diagnosticEventSchema>;
+
+export type DeviceEvent = z.infer<typeof deviceEventSchema>;
+
+export const diagnosticSchema = z.object({
+  code: z.string().min(1),
+  message: z.string().min(1),
+});
 
 export const deviceStateSchema = z.object({
   deviceId: z.string().min(1),
   lastSequence: z.number().int().nonnegative(),
-  status: deviceStatusSchema,
-  temperature: z.number(),
+  status: deviceStatusSchema.nullable(),
+  temperature: z.number().nullable(),
   operationCount: z.number().int().nonnegative(),
+  cpu: z.number().nullable(),
+  ram: z.number().nullable(),
+  poweredOn: z.number().int().nonnegative(),
+  diagnostic: diagnosticSchema.nullable(),
 });
 
 export type DeviceState = z.infer<typeof deviceStateSchema>;

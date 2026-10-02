@@ -1,8 +1,8 @@
 import {
   DEVICE_STATES_COLLECTION,
+  deviceEventSchema,
   deviceStateSchema,
   EVENTS_COLLECTION,
-  telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Db } from 'mongodb';
@@ -55,7 +55,7 @@ export const buildApp = (db: Db, options: BuildAppOptions): FastifyInstance => {
         .limit(EVENT_READ_LIMIT)
         .toArray();
 
-      return documents.map((document) => telemetryEventSchema.parse(document));
+      return documents.map((document) => deviceEventSchema.parse(document));
     },
   );
 

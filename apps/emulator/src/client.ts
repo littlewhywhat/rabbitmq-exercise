@@ -1,5 +1,5 @@
 import { createConnection, type Socket } from 'node:net';
-import type { TelemetryEvent } from '@rabbitmq-exercise/contracts';
+import type { DeviceEvent } from '@rabbitmq-exercise/contracts';
 import type { Logger } from 'pino';
 import type { Device } from './device';
 
@@ -15,7 +15,7 @@ export type DeviceConnection = {
   stop: () => void;
 };
 
-const writeEvent = (socket: Socket, event: TelemetryEvent): void => {
+const writeEvent = (socket: Socket, event: DeviceEvent): void => {
   socket.write(`${JSON.stringify(event)}\n`);
 };
 

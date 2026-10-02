@@ -1,12 +1,28 @@
 import {
+  cpuEventSchema,
   DEVICE_STATES_COLLECTION,
+  type DeviceEvent,
+  diagnosticEventSchema,
   EVENTS_COLLECTION,
+  ramEventSchema,
   type TelemetryEvent,
   telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
-import { type Db, MongoServerError } from 'mongodb';
+import { type Db, type Document, MongoServerError } from 'mongodb';
 
 const REBUILD_ATTEMPTS = 5;
+
+type StoredSnapshot = {
+  operationCount: number;
+  poweredOn: number;
+  eventCount: number;
+  lastSequence: number;
+  status: TelemetryEvent['status'] | null;
+  temperature: number | null;
+  cpu: number | null;
+  ram: number | null;
+  diagnostic: { code: string; message: string } | null;
+};
 
 const duplicateKey = (error: unknown): boolean =>
   error instanceof MongoServerError && error.code === 11000;
@@ -23,25 +39,38 @@ export const ensureIndexes = async (db: Db): Promise<void> => {
     .createIndex({ deviceId: 1, sequence: -1 });
 };
 
+const readLatest = async (
+  db: Db,
+  deviceId: string,
+  type: DeviceEvent['type'],
+): Promise<Document | null> =>
+  db
+    .collection(EVENTS_COLLECTION)
+    .find({ deviceId, type })
+    .sort({ sequence: -1, _id: 1 })
+    .limit(1)
+    .next();
+
 const readSnapshot = async (
   db: Db,
   deviceId: string,
-): Promise<{
-  operationCount: number;
-  eventCount: number;
-  lastSequence: number;
-  status: TelemetryEvent['status'];
-  temperature: number;
-} | null> => {
+): Promise<StoredSnapshot | null> => {
   const [totals] = await db
     .collection(EVENTS_COLLECTION)
-    .aggregate<{ operationCount: number; eventCount: number }>([
+    .aggregate<{
+      operationCount: number;
+      poweredOn: number;
+      eventCount: number;
+      lastSequence: number;
+    }>([
       { $match: { deviceId } },
       {
         $group: {
           _id: null,
-          operationCount: { $sum: '$operations' },
+          operationCount: { $sum: { $ifNull: ['$operations', 0] } },
+          poweredOn: { $sum: { $ifNull: ['$poweredOn', 0] } },
           eventCount: { $sum: 1 },
+          lastSequence: { $max: '$sequence' },
         },
       },
     ])
@@ -51,64 +80,62 @@ const readSnapshot = async (
     return null;
   }
 
-  const latest = await db
-    .collection(EVENTS_COLLECTION)
-    .find({ deviceId })
-    .sort({ sequence: -1, _id: 1 })
-    .limit(1)
-    .next();
+  const telemetryDoc = await readLatest(db, deviceId, 'telemetry');
+  const cpuDoc = await readLatest(db, deviceId, 'cpu');
+  const ramDoc = await readLatest(db, deviceId, 'ram');
+  const diagnosticDoc = await readLatest(db, deviceId, 'diagnostic');
+  const telemetry =
+    telemetryDoc === null ? null : telemetryEventSchema.parse(telemetryDoc);
+  const cpu = cpuDoc === null ? null : cpuEventSchema.parse(cpuDoc);
+  const ram = ramDoc === null ? null : ramEventSchema.parse(ramDoc);
+  const diagnostic =
+    diagnosticDoc === null ? null : diagnosticEventSchema.parse(diagnosticDoc);
 
-  if (latest === null) {
-    return null;
-  }
-
-  const event = telemetryEventSchema.parse(latest);
   return {
     operationCount: totals.operationCount,
+    poweredOn: totals.poweredOn,
     eventCount: totals.eventCount,
-    lastSequence: event.sequence,
-    status: event.status,
-    temperature: event.temperature,
+    lastSequence: totals.lastSequence,
+    status: telemetry?.status ?? null,
+    temperature: telemetry?.temperature ?? null,
+    cpu: cpu?.cpu ?? null,
+    ram: ram?.ram ?? null,
+    diagnostic:
+      diagnostic === null
+        ? null
+        : { code: diagnostic.code, message: diagnostic.message },
   };
 };
 
 const writeSnapshot = async (
   db: Db,
   deviceId: string,
-  snapshot: {
-    operationCount: number;
-    eventCount: number;
-    lastSequence: number;
-    status: TelemetryEvent['status'];
-    temperature: number;
-  },
+  snapshot: StoredSnapshot,
 ): Promise<'written' | 'stale'> => {
-  const updated = await db.collection(DEVICE_STATES_COLLECTION).updateOne(
-    { deviceId, eventCount: { $lt: snapshot.eventCount } },
-    {
-      $set: {
-        deviceId,
-        lastSequence: snapshot.lastSequence,
-        status: snapshot.status,
-        temperature: snapshot.temperature,
-        operationCount: snapshot.operationCount,
-        eventCount: snapshot.eventCount,
-      },
-    },
-  );
+  const stored = {
+    deviceId,
+    lastSequence: snapshot.lastSequence,
+    status: snapshot.status,
+    temperature: snapshot.temperature,
+    operationCount: snapshot.operationCount,
+    cpu: snapshot.cpu,
+    ram: snapshot.ram,
+    poweredOn: snapshot.poweredOn,
+    diagnostic: snapshot.diagnostic,
+    eventCount: snapshot.eventCount,
+  };
+  const updated = await db
+    .collection(DEVICE_STATES_COLLECTION)
+    .updateOne(
+      { deviceId, eventCount: { $lt: snapshot.eventCount } },
+      { $set: stored },
+    );
   if (updated.matchedCount === 1) {
     return 'written';
   }
 
   try {
-    await db.collection(DEVICE_STATES_COLLECTION).insertOne({
-      deviceId,
-      lastSequence: snapshot.lastSequence,
-      status: snapshot.status,
-      temperature: snapshot.temperature,
-      operationCount: snapshot.operationCount,
-      eventCount: snapshot.eventCount,
-    });
+    await db.collection(DEVICE_STATES_COLLECTION).insertOne(stored);
     return 'written';
   } catch (error) {
     if (duplicateKey(error)) {
@@ -141,7 +168,7 @@ const rebuildSnapshot = async (db: Db, deviceId: string): Promise<void> => {
 
 export const apply = async (
   db: Db,
-  event: TelemetryEvent,
+  event: DeviceEvent,
 ): Promise<'inserted' | 'duplicate'> => {
   let outcome: 'inserted' | 'duplicate' = 'inserted';
   try {
