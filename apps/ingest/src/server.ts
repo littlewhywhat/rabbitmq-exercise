@@ -1,6 +1,7 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import {
   deviceEventSchema,
+  PARTITION_COUNT,
   partitionQueue,
   queueForDevice,
   singleActiveConsumer,
@@ -12,18 +13,14 @@ export const MAX_FRAME_BYTES = 64 * 1024;
 
 type BuildServerOptions = {
   logger: boolean;
-  partitionCount: number;
 };
 
 export type IngestServer = Server & {
   log: Logger;
 };
 
-export const ensureQueue = async (
-  channel: ConfirmChannel,
-  partitionCount: number,
-): Promise<void> => {
-  for (let index = 0; index < partitionCount; index += 1) {
+export const ensureQueue = async (channel: ConfirmChannel): Promise<void> => {
+  for (let index = 0; index < PARTITION_COUNT; index += 1) {
     await channel.assertQueue(partitionQueue(index), {
       durable: true,
       arguments: singleActiveConsumer,
@@ -37,7 +34,7 @@ export const buildServer = (
 ): IngestServer => {
   const log = pino({ enabled: options.logger });
   const server = createServer((socket) => {
-    attachSocket(socket, channel, options.partitionCount, log);
+    attachSocket(socket, channel, log);
   }) as IngestServer;
   server.log = log;
   server.on('listening', () => {
@@ -70,7 +67,6 @@ export const listen = (
 const attachSocket = (
   socket: Socket,
   channel: ConfirmChannel,
-  partitionCount: number,
   log: Logger,
 ): void => {
   let buffer: Buffer = Buffer.alloc(0);
@@ -93,7 +89,7 @@ const attachSocket = (
     chain = chain
       .then(async () => {
         for (const line of taken.lines) {
-          await publishLine(line, channel, partitionCount, log);
+          await publishLine(line, channel, log);
         }
       })
       .catch((error: unknown) => {
@@ -145,7 +141,6 @@ const closeOversized = (socket: Socket, log: Logger): void => {
 const publishLine = async (
   line: string,
   channel: ConfirmChannel,
-  partitionCount: number,
   log: Logger,
 ): Promise<void> => {
   if (line.length === 0) {
@@ -167,7 +162,7 @@ const publishLine = async (
   }
 
   channel.sendToQueue(
-    queueForDevice(result.data.deviceId, partitionCount),
+    queueForDevice(result.data.deviceId),
     Buffer.from(JSON.stringify(result.data)),
     {
       contentType: 'application/json',

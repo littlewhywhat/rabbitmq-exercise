@@ -158,54 +158,13 @@ const writeSnapshot = async (
   }
 };
 
-const sequenceOrNull = (value: unknown): number | null =>
-  typeof value === 'number' ? value : null;
-
 const readFold = async (
   db: Db,
   deviceId: string,
-): Promise<(FoldSnapshot & { eventCount: number }) | null> => {
-  const document = await db
-    .collection(DEVICE_STATES_COLLECTION)
-    .findOne({ deviceId });
-  if (document === null || typeof document.eventCount !== 'number') {
-    return null;
-  }
-
-  return {
-    deviceId,
-    lastSequence:
-      typeof document.lastSequence === 'number' ? document.lastSequence : 0,
-    status:
-      document.status === 'up' || document.status === 'down'
-        ? document.status
-        : null,
-    temperature:
-      typeof document.temperature === 'number' ? document.temperature : null,
-    operationCount:
-      typeof document.operationCount === 'number' ? document.operationCount : 0,
-    cpu: typeof document.cpu === 'number' ? document.cpu : null,
-    ram: typeof document.ram === 'number' ? document.ram : null,
-    poweredOn: typeof document.poweredOn === 'number' ? document.poweredOn : 0,
-    diagnostic:
-      document.diagnostic !== null &&
-      typeof document.diagnostic === 'object' &&
-      'code' in document.diagnostic &&
-      'message' in document.diagnostic &&
-      typeof document.diagnostic.code === 'string' &&
-      typeof document.diagnostic.message === 'string'
-        ? {
-            code: document.diagnostic.code,
-            message: document.diagnostic.message,
-          }
-        : null,
-    telemetrySequence: sequenceOrNull(document.telemetrySequence),
-    cpuSequence: sequenceOrNull(document.cpuSequence),
-    ramSequence: sequenceOrNull(document.ramSequence),
-    diagnosticSequence: sequenceOrNull(document.diagnosticSequence),
-    eventCount: document.eventCount,
-  };
-};
+): Promise<(FoldSnapshot & { eventCount: number }) | null> =>
+  db
+    .collection<FoldSnapshot & { eventCount: number }>(DEVICE_STATES_COLLECTION)
+    .findOne({ deviceId }, { projection: { _id: 0 } });
 
 const foldSnapshot = async (db: Db, event: DeviceEvent): Promise<boolean> => {
   const current = await readFold(db, event.deviceId);

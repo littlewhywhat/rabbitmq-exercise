@@ -1,4 +1,3 @@
-import { parsePartitionCount } from '@rabbitmq-exercise/contracts';
 import { connect } from 'amqplib';
 import { buildServer, ensureQueue, listen } from './server';
 
@@ -11,10 +10,9 @@ const main = async (): Promise<void> => {
   const port = process.env.PORT ? Number(process.env.PORT) : 4000;
   const connection = await connect(url);
   connection.on('error', () => undefined);
-  const partitionCount = parsePartitionCount(process.env.PARTITION_COUNT);
   const channel = await connection.createConfirmChannel();
-  await ensureQueue(channel, partitionCount);
-  const server = buildServer(channel, { logger: true, partitionCount });
+  await ensureQueue(channel);
+  const server = buildServer(channel, { logger: true });
   server.log.info('queue ready');
 
   const shutdown = async (): Promise<void> => {

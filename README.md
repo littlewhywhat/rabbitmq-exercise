@@ -52,13 +52,9 @@ Raise `DEVICE_COUNT` to add devices.
 
 ## Multiple instances
 
-Ingest replicas publish each device to one of `PARTITION_COUNT` queues, `telemetry-0` upward. The default count is 4, and a device always uses the same queue. A load balancer in front of ingest spreads device connections. This compose file does not run that balancer.
+Ingest publishes each device to one of four queues, `telemetry-0` through `telemetry-3`. A device always uses the same queue. A load balancer in front of ingest spreads device connections. This compose file does not run that balancer.
 
-The processor has no host port. Each queue has one active consumer, so a device stays with one processor. Replicas beyond the partition count wait:
-
-```bash
-docker compose up --build --scale processor=3
-```
+This compose file runs one processor, and it reads every queue. Another processor can take a subset with `PARTITIONS=0,1` while the first uses `PARTITIONS=2,3`. Each queue keeps one active consumer.
 
 ## Limits and compromises
 

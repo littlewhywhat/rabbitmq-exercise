@@ -1,7 +1,6 @@
 import { once } from 'node:events';
 import { connect as connectNet, type Socket } from 'node:net';
 import {
-  DEFAULT_PARTITION_COUNT,
   queueForDevice,
   type TelemetryEvent,
   telemetryEventSchema,
@@ -21,7 +20,7 @@ import {
   MAX_FRAME_BYTES,
 } from '../src/server';
 
-const deviceQueue = queueForDevice('device-1', DEFAULT_PARTITION_COUNT);
+const deviceQueue = queueForDevice('device-1');
 
 const event = (eventId: string, sequence: number): TelemetryEvent => ({
   type: 'telemetry',
@@ -92,11 +91,8 @@ describe('socket ingest', () => {
     client = await connectAmqp(rabbit.url);
     client.on('error', () => undefined);
     channel = await client.createConfirmChannel();
-    await ensureQueue(channel, DEFAULT_PARTITION_COUNT);
-    server = buildServer(channel, {
-      logger: false,
-      partitionCount: DEFAULT_PARTITION_COUNT,
-    });
+    await ensureQueue(channel);
+    server = buildServer(channel, { logger: false });
     await listen(server, '127.0.0.1', 0);
     const address = server.address();
     if (address === null || typeof address === 'string') {

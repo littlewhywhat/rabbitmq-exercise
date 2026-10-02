@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Send telemetry cases at the compose stack and print each result."""
 
-import base64
 import json
 import os
 import socket
@@ -77,39 +76,6 @@ def mongo(script: str) -> None:
     )
     if result.returncode != 0:
         raise SystemExit(f"mongosh failed\n{result.stdout}\n{result.stderr}")
-
-
-def partition_index(device_id: str, count: int = 4) -> int:
-    # Same mix as partitionIndex in packages/contracts.
-    hash_value = 0
-    for char in device_id:
-        hash_value = ((hash_value * 31) + ord(char)) & 0xFFFFFFFF
-    return hash_value % count
-
-
-def publish(payload: dict) -> None:
-    body = json.dumps(
-        {
-            "properties": {"content_type": "application/json", "delivery_mode": 2},
-            "routing_key": f"telemetry-{partition_index(payload['deviceId'])}",
-            "payload": json.dumps(payload, separators=(",", ":")),
-            "payload_encoding": "string",
-        }
-    ).encode()
-    request = urllib.request.Request(
-        "http://127.0.0.1:15672/api/exchanges/%2F/amq.default/publish",
-        data=body,
-        method="POST",
-        headers={
-            "content-type": "application/json",
-            "authorization": "Basic "
-            + base64.b64encode(b"telemetry:telemetry").decode(),
-        },
-    )
-    with urllib.request.urlopen(request, timeout=10) as response:
-        result = json.load(response)
-    if not result.get("routed"):
-        raise SystemExit(f"rabbitmq did not route the message: {result}")
 
 
 def send_lines(lines: list[str]) -> None:
@@ -374,7 +340,7 @@ def crash_after_insert() -> None:
         status, _body = get("/devices/device-crash")
         if status != 404:
             raise SystemExit(f"snapshot existed before redelivery: {status}")
-        publish(payload)
+        send_event(payload)
         compose("start", "processor")
         wait_until(
             lambda: len(ready_processors()) >= 1,

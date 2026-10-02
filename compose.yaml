@@ -54,7 +54,6 @@ services:
     environment:
       PORT: '4000'
       RABBITMQ_URL: amqp://telemetry:telemetry@rabbitmq:5672
-      PARTITION_COUNT: '4'
     ports:
       - '4000:4000'
     depends_on:
@@ -79,7 +78,6 @@ services:
       MONGODB_URI: mongodb://mongo:27017/telemetry?directConnection=true
       MONGODB_DB: telemetry
       RABBITMQ_URL: amqp://telemetry:telemetry@rabbitmq:5672
-      PARTITION_COUNT: '4'
     depends_on:
       mongo:
         condition: service_healthy

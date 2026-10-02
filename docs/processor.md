@@ -1,6 +1,6 @@
 # Processor
 
-The processor asserts `PARTITION_COUNT` durable queues, `telemetry-0` upward, and reads one message at a time. Each queue has one active consumer, so one device stays with one processor.
+The processor asserts the durable queues `telemetry-0` through `telemetry-3` and reads one message at a time. `PARTITIONS` selects which of those queues it reads. The default is all four. Each queue has one active consumer, so one device stays with one processor.
 
 A new event is written, then folded into the stored snapshot, then the message is acknowledged. Counters add that event. A gauge moves only when its sequence is newer. An invalid payload is discarded and is not returned to the queue. A failed write is rejected and the message returns to the queue.
 

@@ -62,7 +62,7 @@ Deleting `device_states` leaves the event log. The next delivery rebuilds that d
 
 ## Queue
 
-`PARTITION_COUNT` queues are named `telemetry-0` upward. The default count is 4. A publisher sends a device to the queue selected by a hash of `deviceId`. Each queue has one active consumer.
+Four queues are named `telemetry-0` through `telemetry-3`. A publisher sends a device to the queue selected by a hash of `deviceId`. A processor reads the queues listed in `PARTITIONS`, or all four when that variable is unset. Each queue has one active consumer.
 
 ## Socket frame
 

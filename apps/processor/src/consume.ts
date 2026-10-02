@@ -47,11 +47,11 @@ export const consumeTelemetry = async (
   connection: ChannelModel,
   db: Db,
   log: Logger,
-  partitionCount: number,
+  partitions: number[],
 ): Promise<Channel> => {
   const channel = await connection.createChannel();
   await channel.prefetch(1);
-  for (let index = 0; index < partitionCount; index += 1) {
+  for (const index of partitions) {
     const queue = partitionQueue(index);
     await channel.assertQueue(queue, {
       durable: true,
