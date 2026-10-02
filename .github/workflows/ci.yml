@@ -63,10 +63,9 @@ jobs:
             echo 'e2e failed'
             echo
             echo '````'
-            head -n 40 "$RUNNER_TEMP/e2e.log"
-            echo
+            awk '/^stack is up$/,/^===== ps =====/' "$RUNNER_TEMP/e2e.log"
             echo '----- tail -----'
-            tail -n 120 "$RUNNER_TEMP/e2e.log"
+            tail -n 80 "$RUNNER_TEMP/e2e.log"
             echo '````'
           } > "$RUNNER_TEMP/e2e-comment.md"
           gh pr comment "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/e2e-comment.md"
