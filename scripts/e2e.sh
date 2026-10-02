@@ -5,7 +5,10 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 dump() {
-  docker compose --profile emulator logs --no-color || true
+  echo "===== ps ====="
+  docker compose --profile emulator ps -a || true
+  echo "===== app logs ====="
+  docker compose --profile emulator logs --no-color --tail 30 state ingest processor emulator || true
 }
 
 cleanup() {

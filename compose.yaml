@@ -18,7 +18,7 @@ services:
       - '5672:5672'
       - '15672:15672'
     healthcheck:
-      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_port_connectivity']
       interval: 5s
       timeout: 5s
       retries: 20
@@ -64,7 +64,7 @@ services:
         - CMD
         - node
         - -e
-        - const net = require('net'); const socket = net.connect(4000, '127.0.0.1', () => { socket.end(); process.exit(0); }); socket.on('error', () => process.exit(1));
+        - "import('node:net').then(({createConnection}) => { const socket = createConnection(4000, '127.0.0.1'); socket.on('connect', () => { socket.end(); process.exit(0); }); socket.on('error', () => process.exit(1)); })"
       interval: 5s
       timeout: 5s
       retries: 20
