@@ -1,7 +1,7 @@
+import amqp from 'amqplib';
 import { MongoClient } from 'mongodb';
-import pino from 'pino';
 import { ensureIndexes } from './apply';
-import { connectRabbit, consumeTelemetry } from './consume';
+import { consumeTelemetry } from './consume';
 
 const main = async (): Promise<void> => {
   const uri = process.env.MONGODB_URI;
@@ -14,16 +14,17 @@ const main = async (): Promise<void> => {
   }
 
   const databaseName = process.env.MONGODB_DB ?? 'telemetry';
-  const log = pino();
   const client = new MongoClient(uri);
   await client.connect();
   const db = client.db(databaseName);
   await ensureIndexes(db);
-  log.info({ db: databaseName }, 'indexes ready');
+  console.log(
+    JSON.stringify({ level: 'info', db: databaseName, msg: 'indexes ready' }),
+  );
 
-  const connection = await connectRabbit(rabbitUrl);
-  const channel = await consumeTelemetry(connection, db, log);
-  log.info('consuming telemetry');
+  const connection = await amqp.connect(rabbitUrl);
+  const channel = await consumeTelemetry(connection, db);
+  console.log(JSON.stringify({ level: 'info', msg: 'consuming telemetry' }));
 
   const shutdown = async (): Promise<void> => {
     await channel.close();

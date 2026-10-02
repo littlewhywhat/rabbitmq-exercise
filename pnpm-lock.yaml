@@ -69,9 +69,6 @@ importers:
       mongodb:
         specifier: ^6.20.0
         version: 6.21.0
-      pino:
-        specifier: ^10.3.1
-        version: 10.3.1
       tsx:
         specifier: ^4.20.5
         version: 4.23.15
