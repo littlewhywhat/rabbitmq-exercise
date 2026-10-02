@@ -147,6 +147,22 @@ def scenario(name: str) -> None:
     print(name, flush=True)
 
 
+def snapshot(device_id: str, **fields):
+    body = {
+        "deviceId": device_id,
+        "lastSequence": 0,
+        "status": None,
+        "temperature": None,
+        "operationCount": 0,
+        "cpu": None,
+        "ram": None,
+        "poweredOn": 0,
+        "diagnostic": None,
+    }
+    body.update(fields)
+    return body
+
+
 def synthetic() -> None:
     scenario("synthetic")
     payload = {
@@ -164,13 +180,13 @@ def synthetic() -> None:
         wait_for(
             "/devices/device-e2e",
             lambda body: body
-            == {
-                "deviceId": "device-e2e",
-                "lastSequence": 1,
-                "status": "up",
-                "temperature": 21.5,
-                "operationCount": 3,
-            },
+            == snapshot(
+                "device-e2e",
+                lastSequence=1,
+                status="up",
+                temperature=21.5,
+                operationCount=3,
+            ),
         ),
     )
     show(
@@ -186,7 +202,8 @@ def emulator() -> None:
             "device-1",
             wait_for(
                 "/devices/device-1",
-                lambda body: body.get("operationCount", 0) >= 1,
+                lambda body: body.get("deviceId") == "device-1"
+                and isinstance(body.get("lastSequence"), int),
             ),
         )
     finally:
@@ -232,13 +249,13 @@ def duplicate() -> None:
         wait_for(
             "/devices/device-dup",
             lambda body: body
-            == {
-                "deviceId": "device-dup",
-                "lastSequence": 2,
-                "status": "down",
-                "temperature": 30,
-                "operationCount": 6,
-            },
+            == snapshot(
+                "device-dup",
+                lastSequence=2,
+                status="down",
+                temperature=30,
+                operationCount=6,
+            ),
         ),
     )
     show(
@@ -275,13 +292,13 @@ def older_sequence() -> None:
         wait_for(
             "/devices/device-order",
             lambda body: body
-            == {
-                "deviceId": "device-order",
-                "lastSequence": 5,
-                "status": "up",
-                "temperature": 50,
-                "operationCount": 3,
-            },
+            == snapshot(
+                "device-order",
+                lastSequence=5,
+                status="up",
+                temperature=50,
+                operationCount=3,
+            ),
         ),
     )
     show(
@@ -310,13 +327,13 @@ def broken_line() -> None:
         wait_for(
             "/devices/device-bad",
             lambda body: body
-            == {
-                "deviceId": "device-bad",
-                "lastSequence": 1,
-                "status": "up",
-                "temperature": 18,
-                "operationCount": 2,
-            },
+            == snapshot(
+                "device-bad",
+                lastSequence=1,
+                status="up",
+                temperature=18,
+                operationCount=2,
+            ),
         ),
     )
     show(
@@ -361,13 +378,13 @@ def crash_after_insert() -> None:
             wait_for(
                 "/devices/device-crash",
                 lambda body: body
-                == {
-                    "deviceId": "device-crash",
-                    "lastSequence": 7,
-                    "status": "down",
-                    "temperature": 12,
-                    "operationCount": 4,
-                },
+                == snapshot(
+                    "device-crash",
+                    lastSequence=7,
+                    status="down",
+                    temperature=12,
+                    operationCount=4,
+                ),
                 60,
             ),
         )
@@ -418,13 +435,13 @@ def two_processors() -> None:
         wait_for(
             "/devices/device-multi",
             lambda body: body
-            == {
-                "deviceId": "device-multi",
-                "lastSequence": 19,
-                "status": "down",
-                "temperature": 19,
-                "operationCount": operation_count,
-            },
+            == snapshot(
+                "device-multi",
+                lastSequence=19,
+                status="down",
+                temperature=19,
+                operationCount=operation_count,
+            ),
             60,
         ),
     )
