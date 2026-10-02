@@ -5,6 +5,7 @@ import {
 } from '@rabbitmq-exercise/contracts';
 import type { Channel, ChannelModel, ConsumeMessage } from 'amqplib';
 import type { Db } from 'mongodb';
+import type { Logger } from 'pino';
 import { apply } from './apply';
 
 export const parseTelemetryMessage = (
@@ -17,22 +18,15 @@ export const parseTelemetryMessage = (
   }
 };
 
-const log = (
-  level: 'info' | 'warn' | 'error',
-  msg: string,
-  fields: Record<string, unknown> = {},
-): void => {
-  console.log(JSON.stringify({ level, msg, ...fields }));
-};
-
 const handleDelivery = async (
   channel: Channel,
   db: Db,
   message: ConsumeMessage,
+  log: Logger,
 ): Promise<void> => {
   const event = parseTelemetryMessage(message.content);
   if (event === null) {
-    log('warn', 'dropped invalid telemetry message');
+    log.warn('dropped invalid telemetry message');
     channel.nack(message, false, false);
     return;
   }
@@ -40,13 +34,12 @@ const handleDelivery = async (
   try {
     const result = await apply(db, event);
     channel.ack(message);
-    log('info', 'applied telemetry event', {
-      deviceId: event.deviceId,
-      eventId: event.eventId,
-      result,
-    });
+    log.info(
+      { deviceId: event.deviceId, eventId: event.eventId, result },
+      'applied telemetry event',
+    );
   } catch (error) {
-    log('error', 'telemetry apply failed', { err: String(error) });
+    log.error({ err: error }, 'telemetry apply failed');
     channel.nack(message, false, true);
   }
 };
@@ -54,6 +47,7 @@ const handleDelivery = async (
 export const consumeTelemetry = async (
   connection: ChannelModel,
   db: Db,
+  log: Logger,
 ): Promise<Channel> => {
   const channel = await connection.createChannel();
   await channel.assertQueue(TELEMETRY_QUEUE, { durable: true });
@@ -62,7 +56,7 @@ export const consumeTelemetry = async (
     if (message === null) {
       return;
     }
-    void handleDelivery(channel, db, message);
+    void handleDelivery(channel, db, message, log);
   });
   return channel;
 };
