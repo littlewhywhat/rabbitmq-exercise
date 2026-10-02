@@ -17,6 +17,8 @@ The state service listens on port 3000.
 - `GET /devices/:deviceId`
 - `GET /devices/:deviceId/events`
 
+The ingest service listens on port 4000.
+
 Services log JSON to stdout. `docker compose logs` shows them together.
 
 ## Checks

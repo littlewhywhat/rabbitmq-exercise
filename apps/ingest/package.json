@@ -2,12 +2,21 @@
   "name": "@rabbitmq-exercise/ingest",
   "version": "0.0.0",
   "private": true,
-  "description": "Not implemented.",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --testTimeout=120000 --hookTimeout=120000 --fileParallelism=false"
   },
   "dependencies": {
-    "@rabbitmq-exercise/contracts": "workspace:*"
+    "@rabbitmq-exercise/contracts": "workspace:*",
+    "amqplib": "^0.10.8",
+    "pino": "^9.9.0",
+    "tsx": "^4.20.5"
+  },
+  "devDependencies": {
+    "@testcontainers/rabbitmq": "^11.5.0",
+    "@types/amqplib": "^0.10.7",
+    "vitest": "^3.2.4"
   }
 }
