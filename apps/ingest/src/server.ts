@@ -1,7 +1,7 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import {
+  deviceEventSchema,
   TELEMETRY_QUEUE,
-  telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import type { ConfirmChannel } from 'amqplib';
 import pino, { type Logger } from 'pino';
@@ -85,7 +85,7 @@ const attachSocket = (
         }
       })
       .catch((error: unknown) => {
-        log.error({ err: error }, 'failed to publish telemetry');
+        log.error({ err: error }, 'failed to publish event');
         socket.destroy();
       })
       .finally(() => {
@@ -143,13 +143,13 @@ const publishLine = async (
   try {
     parsed = JSON.parse(line);
   } catch {
-    log.warn('dropped invalid telemetry');
+    log.warn('dropped invalid event');
     return;
   }
 
-  const result = telemetryEventSchema.safeParse(parsed);
+  const result = deviceEventSchema.safeParse(parsed);
   if (!result.success) {
-    log.warn('dropped invalid telemetry');
+    log.warn('dropped invalid event');
     return;
   }
 

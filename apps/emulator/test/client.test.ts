@@ -1,7 +1,7 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import {
-  type TelemetryEvent,
-  telemetryEventSchema,
+  type DeviceEvent,
+  deviceEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import pino from 'pino';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ const listen = async (server: Server): Promise<number> => {
   return address.port;
 };
 
-const readFrames = (socket: Socket, frames: TelemetryEvent[]): void => {
+const readFrames = (socket: Socket, frames: DeviceEvent[]): void => {
   let buffer = '';
   socket.on('data', (chunk: Buffer) => {
     buffer += chunk.toString('utf8');
@@ -31,7 +31,7 @@ const readFrames = (socket: Socket, frames: TelemetryEvent[]): void => {
     while (newline !== -1) {
       const line = buffer.slice(0, newline);
       buffer = buffer.slice(newline + 1);
-      frames.push(telemetryEventSchema.parse(JSON.parse(line)));
+      frames.push(deviceEventSchema.parse(JSON.parse(line)));
       newline = buffer.indexOf('\n');
     }
   });
@@ -83,7 +83,7 @@ describe('connectDevice', () => {
   });
 
   it('sends one frame per device on each tick', async () => {
-    const frames: TelemetryEvent[] = [];
+    const frames: DeviceEvent[] = [];
     const sockets: Socket[] = [];
     server = createServer((socket) => {
       sockets.push(socket);
@@ -116,7 +116,7 @@ describe('connectDevice', () => {
     await vi.advanceTimersByTimeAsync(1000);
     await waitFor(() => frames.length === 4);
 
-    const byDevice = (deviceId: string): TelemetryEvent[] =>
+    const byDevice = (deviceId: string): DeviceEvent[] =>
       frames.filter((frame) => frame.deviceId === deviceId);
 
     expect(sockets).toHaveLength(2);
@@ -129,7 +129,7 @@ describe('connectDevice', () => {
   });
 
   it('continues the sequence after the socket drops', async () => {
-    const frames: TelemetryEvent[] = [];
+    const frames: DeviceEvent[] = [];
     const sockets: Socket[] = [];
     server = createServer((socket) => {
       sockets.push(socket);

@@ -1,6 +1,6 @@
 import {
-  type TelemetryEvent,
-  telemetryEventSchema,
+  type DeviceEvent,
+  deviceEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import { describe, expect, it } from 'vitest';
 import { createDevice } from '../src/device';
@@ -13,7 +13,7 @@ const ids = (): (() => string) => {
   };
 };
 
-const take = (seed: number, count: number): TelemetryEvent[] => {
+const take = (seed: number, count: number): DeviceEvent[] => {
   const device = createDevice({
     deviceId: 'device-1',
     seed,
@@ -25,30 +25,27 @@ const take = (seed: number, count: number): TelemetryEvent[] => {
 };
 
 describe('createDevice', () => {
-  it('climbs sequence and stays on the telemetry schema', () => {
-    const events = take(1, 3);
+  it('climbs sequence and stays on the device event schema', () => {
+    const events = take(1, 12);
 
-    expect(events.map((event) => event.sequence)).toEqual([
-      1_700_000_000_000, 1_700_000_000_001, 1_700_000_000_002,
-    ]);
+    expect(events.map((event) => event.sequence)).toEqual(
+      Array.from({ length: 12 }, (_, index) => 1_700_000_000_000 + index),
+    );
     for (const event of events) {
-      expect(telemetryEventSchema.parse(event)).toEqual(event);
-      expect(event.operations).toBe(1);
+      expect(deviceEventSchema.parse(event)).toEqual(event);
       expect(event.deviceId).toBe('device-1');
+      if (event.type === 'telemetry') {
+        expect(event.operations).toBe(1);
+      }
     }
+    expect(new Set(events.map((event) => event.type)).size).toBeGreaterThan(1);
   });
 
-  it('repeats status and temperature for the same seed', () => {
-    const first = take(7, 5);
-    const second = take(7, 5);
-
-    expect(second).toEqual(first);
+  it('repeats every kind for the same seed', () => {
+    expect(take(7, 8)).toEqual(take(7, 8));
   });
 
-  it('changes status or temperature when the seed changes', () => {
-    const first = take(1, 5).map((event) => [event.status, event.temperature]);
-    const second = take(2, 5).map((event) => [event.status, event.temperature]);
-
-    expect(second).not.toEqual(first);
+  it('changes the events when the seed changes', () => {
+    expect(take(1, 8)).not.toEqual(take(2, 8));
   });
 });

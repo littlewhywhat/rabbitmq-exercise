@@ -1,10 +1,11 @@
 import {
   DEVICE_STATES_COLLECTION,
+  type DeviceEvent,
   type DeviceState,
+  deviceEventSchema,
   deviceStateSchema,
   EVENTS_COLLECTION,
   type TelemetryEvent,
-  telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import { MongoDBContainer } from '@testcontainers/mongodb';
 import { type Db, MongoClient } from 'mongodb';
@@ -19,6 +20,19 @@ const event = (overrides: Partial<TelemetryEvent> = {}): TelemetryEvent => ({
   status: 'up',
   temperature: 20,
   operations: 1,
+  ...overrides,
+});
+
+const state = (overrides: Partial<DeviceState> = {}): DeviceState => ({
+  deviceId: 'device-1',
+  lastSequence: 1,
+  status: 'up',
+  temperature: 20,
+  operationCount: 1,
+  cpu: null,
+  ram: null,
+  poweredOn: 0,
+  diagnostic: null,
   ...overrides,
 });
 
@@ -55,13 +69,13 @@ describe('apply', () => {
     return document === null ? null : deviceStateSchema.parse(document);
   };
 
-  const readEvents = async (): Promise<TelemetryEvent[]> => {
+  const readEvents = async (): Promise<DeviceEvent[]> => {
     const documents = await db
       .collection(EVENTS_COLLECTION)
       .find({ deviceId: 'device-1' })
       .sort({ sequence: 1 })
       .toArray();
-    return documents.map((document) => telemetryEventSchema.parse(document));
+    return documents.map((document) => deviceEventSchema.parse(document));
   };
 
   beforeAll(async () => {
@@ -89,13 +103,13 @@ describe('apply', () => {
     await expect(apply(db, first)).resolves.toBe('inserted');
 
     expect(await readEvents()).toEqual([first]);
-    expect(await readState()).toEqual({
-      deviceId: 'device-1',
-      lastSequence: 1,
-      status: 'down',
-      temperature: 33,
-      operationCount: 2,
-    });
+    expect(await readState()).toEqual(
+      state({
+        status: 'down',
+        temperature: 33,
+        operationCount: 2,
+      }),
+    );
   });
 
   it('moves gauges when a newer sequence arrives', async () => {
@@ -111,13 +125,14 @@ describe('apply', () => {
       }),
     );
 
-    expect(await readState()).toEqual({
-      deviceId: 'device-1',
-      lastSequence: 2,
-      status: 'down',
-      temperature: 40,
-      operationCount: 4,
-    });
+    expect(await readState()).toEqual(
+      state({
+        lastSequence: 2,
+        status: 'down',
+        temperature: 40,
+        operationCount: 4,
+      }),
+    );
   });
 
   it('keeps gauges when an older sequence arrives', async () => {
@@ -133,13 +148,13 @@ describe('apply', () => {
       }),
     );
 
-    expect(await readState()).toEqual({
-      deviceId: 'device-1',
-      lastSequence: 5,
-      status: 'up',
-      temperature: 50,
-      operationCount: 3,
-    });
+    expect(await readState()).toEqual(
+      state({
+        lastSequence: 5,
+        temperature: 50,
+        operationCount: 3,
+      }),
+    );
   });
 
   it('ignores a duplicate event id', async () => {
@@ -151,13 +166,7 @@ describe('apply', () => {
     ).resolves.toBe('duplicate');
 
     expect(await readEvents()).toEqual([first]);
-    expect(await readState()).toEqual({
-      deviceId: 'device-1',
-      lastSequence: 1,
-      status: 'up',
-      temperature: 20,
-      operationCount: 1,
-    });
+    expect(await readState()).toEqual(state());
   });
 
   it('rebuilds the snapshot when the event is already stored', async () => {
@@ -166,13 +175,13 @@ describe('apply', () => {
 
     await expect(apply(db, first)).resolves.toBe('duplicate');
 
-    expect(await readState()).toEqual({
-      deviceId: 'device-1',
-      lastSequence: 1,
-      status: 'down',
-      temperature: 33,
-      operationCount: 2,
-    });
+    expect(await readState()).toEqual(
+      state({
+        status: 'down',
+        temperature: 33,
+        operationCount: 2,
+      }),
+    );
   });
 
   it('counts every event when applies overlap', async () => {
@@ -189,13 +198,14 @@ describe('apply', () => {
     await Promise.all(events.map((item) => apply(db, item)));
 
     expect(await readEvents()).toHaveLength(40);
-    expect(await readState()).toEqual({
-      deviceId: 'device-1',
-      lastSequence: 39,
-      status: 'down',
-      temperature: 39,
-      operationCount: events.reduce((sum, item) => sum + item.operations, 0),
-    });
+    expect(await readState()).toEqual(
+      state({
+        lastSequence: 39,
+        status: 'down',
+        temperature: 39,
+        operationCount: events.reduce((sum, item) => sum + item.operations, 0),
+      }),
+    );
   });
 
   it('counts one event when the same event is applied twice at once', async () => {
@@ -204,12 +214,75 @@ describe('apply', () => {
     await Promise.all([apply(db, first), apply(db, first)]);
 
     expect(await readEvents()).toEqual([first]);
-    expect(await readState()).toEqual({
+    expect(await readState()).toEqual(state({ operationCount: 4 }));
+  });
+
+  it('folds each kind on its own sequence', async () => {
+    await apply(db, event({ eventId: 'tel-5', sequence: 5, temperature: 50 }));
+    await apply(db, {
+      type: 'cpu',
+      eventId: 'cpu-10',
       deviceId: 'device-1',
-      lastSequence: 1,
-      status: 'up',
-      temperature: 20,
-      operationCount: 4,
+      sequence: 10,
+      cpu: 20,
     });
+    await apply(
+      db,
+      event({
+        eventId: 'tel-7',
+        sequence: 7,
+        temperature: 30,
+        operations: 2,
+      }),
+    );
+    await apply(db, {
+      type: 'ram',
+      eventId: 'ram-3',
+      deviceId: 'device-1',
+      sequence: 3,
+      ram: 40,
+    });
+    await apply(db, {
+      type: 'powered_on',
+      eventId: 'on-1',
+      deviceId: 'device-1',
+      sequence: 4,
+      poweredOn: 15,
+    });
+    await apply(db, {
+      type: 'powered_on',
+      eventId: 'on-1',
+      deviceId: 'device-1',
+      sequence: 4,
+      poweredOn: 99,
+    });
+    await apply(db, {
+      type: 'diagnostic',
+      eventId: 'd-8',
+      deviceId: 'device-1',
+      sequence: 8,
+      code: 'link',
+      message: 'uplink interrupted',
+    });
+    await apply(db, {
+      type: 'diagnostic',
+      eventId: 'd-6',
+      deviceId: 'device-1',
+      sequence: 6,
+      code: 'sensor',
+      message: 'temperature sensor failed',
+    });
+
+    expect(await readState()).toEqual(
+      state({
+        lastSequence: 10,
+        temperature: 30,
+        operationCount: 3,
+        cpu: 20,
+        ram: 40,
+        poweredOn: 15,
+        diagnostic: { code: 'link', message: 'uplink interrupted' },
+      }),
+    );
   });
 });

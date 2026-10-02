@@ -1,18 +1,16 @@
 import {
+  type DeviceEvent,
+  deviceEventSchema,
   TELEMETRY_QUEUE,
-  type TelemetryEvent,
-  telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
 import type { Channel, ChannelModel, ConsumeMessage } from 'amqplib';
 import type { Db } from 'mongodb';
 import type { Logger } from 'pino';
 import { apply } from './apply';
 
-export const parseTelemetryMessage = (
-  content: Buffer,
-): TelemetryEvent | null => {
+export const parseTelemetryMessage = (content: Buffer): DeviceEvent | null => {
   try {
-    return telemetryEventSchema.parse(JSON.parse(content.toString('utf8')));
+    return deviceEventSchema.parse(JSON.parse(content.toString('utf8')));
   } catch {
     return null;
   }
@@ -36,7 +34,7 @@ const handleDelivery = async (
     channel.ack(message);
     log.info(
       { deviceId: event.deviceId, eventId: event.eventId, result },
-      'applied telemetry event',
+      'applied device event',
     );
   } catch (error) {
     log.error({ err: error }, 'telemetry apply failed');
