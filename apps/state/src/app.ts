@@ -20,6 +20,9 @@ export const ensureIndexes = async (db: Db): Promise<void> => {
   await db
     .collection(EVENTS_COLLECTION)
     .createIndex({ deviceId: 1, eventId: 1 }, { unique: true });
+  await db
+    .collection(EVENTS_COLLECTION)
+    .createIndex({ deviceId: 1, sequence: -1 });
 };
 
 export const buildApp = (db: Db, options: BuildAppOptions): FastifyInstance => {

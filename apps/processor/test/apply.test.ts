@@ -159,4 +159,57 @@ describe('apply', () => {
       operationCount: 1,
     });
   });
+
+  it('rebuilds the snapshot when the event is already stored', async () => {
+    const first = event({ operations: 2, temperature: 33, status: 'down' });
+    await db.collection(EVENTS_COLLECTION).insertOne({ ...first });
+
+    await expect(apply(db, first)).resolves.toBe('duplicate');
+
+    expect(await readState()).toEqual({
+      deviceId: 'device-1',
+      lastSequence: 1,
+      status: 'down',
+      temperature: 33,
+      operationCount: 2,
+    });
+  });
+
+  it('counts every event when applies overlap', async () => {
+    const events = Array.from({ length: 40 }, (_, index) =>
+      event({
+        eventId: `evt-${index}`,
+        sequence: index,
+        temperature: index,
+        status: index % 2 === 0 ? 'up' : 'down',
+        operations: (index % 3) + 1,
+      }),
+    );
+
+    await Promise.all(events.map((item) => apply(db, item)));
+
+    expect(await readEvents()).toHaveLength(40);
+    expect(await readState()).toEqual({
+      deviceId: 'device-1',
+      lastSequence: 39,
+      status: 'down',
+      temperature: 39,
+      operationCount: events.reduce((sum, item) => sum + item.operations, 0),
+    });
+  });
+
+  it('counts one event when the same event is applied twice at once', async () => {
+    const first = event({ operations: 4 });
+
+    await Promise.all([apply(db, first), apply(db, first)]);
+
+    expect(await readEvents()).toEqual([first]);
+    expect(await readState()).toEqual({
+      deviceId: 'device-1',
+      lastSequence: 1,
+      status: 'up',
+      temperature: 20,
+      operationCount: 4,
+    });
+  });
 });
