@@ -70,7 +70,7 @@ End-to-end checks start the emulator in one scenario, and that scenario only wai
 
 ## With more time
 
-One transaction around the event insert and the snapshot update would make each message a constant amount of work. Further research covered other solutions to that growing cost. A fixed set of queues with `hash(deviceId) % N` would pin one device to one processor, so the snapshot could be an increment instead of a full sum. N is the processor ceiling, not the device count, and raising it later moves some devices, so their order breaks across that change.
+One transaction around the event insert and the snapshot update would make each message a constant amount of work. Further research covered other solutions to that growing cost. A fixed set of queues with `hash(deviceId) % N` would pin one device to one processor, so the snapshot could be an increment instead of a full sum. N is the processor ceiling, not the device count, and raising it later moves some devices, so their order breaks across that change. In RabbitMQ that set of queues is a consistent-hash exchange with routing key `deviceId`: the `telemetry` queue has no partitions of its own, and a topic exchange would only split event types.
 
 A refactor and deduplication would come next.
 
