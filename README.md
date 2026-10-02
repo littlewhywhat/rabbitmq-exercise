@@ -56,8 +56,14 @@ TODO
 
 ## Limits and compromises
 
-Rebuilding a device snapshot sums that device's events in MongoDB. The work grows with the number of events kept for the device. Reading the latest gauges stays one indexed lookup.
+Rebuilding a device snapshot sums that device's events in MongoDB. The work grows with the number of events kept for the device. Reading the latest gauges stays one indexed lookup. The snapshot can lag until that rebuild finishes.
+
+Ingest drops a line that is not a telemetry event and leaves the socket open. A frame over 64 KiB closes the socket.
+
+The emulator sends only `telemetry`: `status`, `temperature`, and an `operations` delta.
 
 ## With more time
 
 A running counter in deduplicated buckets, or one transaction around the event insert and the snapshot update, would make each message a constant amount of work.
+
+Further event kinds would extend `type` and keep this envelope: cpu, ram, time powered on, and diagnostic errors.
