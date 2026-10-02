@@ -2,12 +2,18 @@
   "name": "@rabbitmq-exercise/emulator",
   "version": "0.0.0",
   "private": true,
-  "description": "Not implemented.",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@rabbitmq-exercise/contracts": "workspace:*"
+    "@rabbitmq-exercise/contracts": "workspace:*",
+    "pino": "^9.9.0",
+    "tsx": "^4.20.5"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }

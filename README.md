@@ -32,9 +32,23 @@ pnpm test
 
 The state service test writes one device snapshot and one telemetry event into MongoDB and reads both back through the endpoints.
 
+The emulator test checks that a seed repeats `status` and `temperature`, and that each device sends events on its own socket, including after the socket drops.
+
 ## Emulator configuration
 
-TODO
+```bash
+DEVICE_COUNT=2 INTERVAL_MS=1000 INGEST_HOST=127.0.0.1 INGEST_PORT=4000 SEED=1 pnpm --filter @rabbitmq-exercise/emulator start
+```
+
+Each device opens its own socket and sends one JSON event per line on `INTERVAL_MS`. Device ids are `device-1` through `device-N`. `SEED` fixes `status` and `temperature`. `eventId` is a new UUID and `sequence` starts at the current time, so a restart does not reuse events. Details are in [docs/emulator.md](docs/emulator.md).
+
+The `emulator` profile waits until ingest is healthy, then connects to host `ingest` on port 4000:
+
+```bash
+DEVICE_COUNT=10 docker compose --profile emulator up --build emulator
+```
+
+Raise `DEVICE_COUNT` to add devices.
 
 ## Multiple instances
 
