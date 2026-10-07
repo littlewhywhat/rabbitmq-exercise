@@ -11,7 +11,7 @@ Devices send telemetry over a long-lived socket. Ingest publishes each event to 
 docker compose up --build
 ```
 
-The state service listens on port 3000. The processor reads the `telemetry` queue. RabbitMQ accepts user `telemetry` with password `telemetry`.
+The state service listens on port 3000. The processor reads the `telemetry-0` upward queues. RabbitMQ accepts user `telemetry` with password `telemetry`.
 
 - `GET /health`
 - `GET /devices/:deviceId`
@@ -52,25 +52,19 @@ Raise `DEVICE_COUNT` to add devices.
 
 ## Multiple instances
 
-Ingest replicas publish to the same `telemetry` queue. A load balancer in front of them spreads device connections. This compose file does not run that balancer.
+Ingest publishes each device to one of four queues, `telemetry-0` through `telemetry-3`. A device always uses the same queue. A load balancer in front of ingest spreads device connections. This compose file does not run that balancer.
 
-The processor has no host port. Replicas read that queue, one message at a time:
-
-```bash
-docker compose up --build --scale processor=3
-```
+This compose file runs one processor, and it reads every queue. Another processor can take a subset with `PARTITIONS=0,1` while the first uses `PARTITIONS=2,3`. Each queue keeps one active consumer.
 
 ## Limits and compromises
 
-Rebuilding a device snapshot sums that device's events in MongoDB. The work grows with the number of events kept for the device. Each latest gauge is one indexed lookup. The snapshot can lag until that rebuild finishes.
+A new event is folded into the stored snapshot, so that work stays the same as the device's history grows. A missing snapshot, or an event that was already stored, is still rebuilt from that device's events. The snapshot can lag until that rebuild finishes.
 
 Ingest drops a line that is not a device event and leaves the socket open. A frame over 64 KiB closes the socket.
 
 End-to-end checks start the emulator in one scenario, and that scenario only waits for a device snapshot. The other scenarios write scripted lines to ingest, or insert an event and publish it to the queue.
 
 ## With more time
-
-With RabbitMQ you can use partitions, and you choose how many partitions the devices share. Each device stays on one partition, which helps solve the growing cost of summing its events because we don't have a problem of race conditions anymore that is addressed by event count in the current solution. 
 
 A refactor and deduplication would come next.
 

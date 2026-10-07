@@ -82,6 +82,24 @@ export type DeviceState = z.infer<typeof deviceStateSchema>;
 
 export const TELEMETRY_QUEUE = 'telemetry';
 
+export const PARTITION_COUNT = 4;
+
+export const singleActiveConsumer = {
+  'x-single-active-consumer': true,
+} as const;
+
+export const partitionQueue = (index: number): string =>
+  `${TELEMETRY_QUEUE}-${index}`;
+
+export const queueForDevice = (deviceId: string): string => {
+  let hash = 0;
+  for (const char of deviceId) {
+    hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0;
+  }
+
+  return partitionQueue(hash % PARTITION_COUNT);
+};
+
 export const DEVICE_STATES_COLLECTION = 'device_states';
 
 export const EVENTS_COLLECTION = 'events';

@@ -184,7 +184,7 @@ describe('apply', () => {
     );
   });
 
-  it('counts every event when applies overlap', async () => {
+  it('folds every event into the snapshot', async () => {
     const events = Array.from({ length: 40 }, (_, index) =>
       event({
         eventId: `evt-${index}`,
@@ -195,7 +195,9 @@ describe('apply', () => {
       }),
     );
 
-    await Promise.all(events.map((item) => apply(db, item)));
+    for (const item of events) {
+      await apply(db, item);
+    }
 
     expect(await readEvents()).toHaveLength(40);
     expect(await readState()).toEqual(
@@ -204,6 +206,38 @@ describe('apply', () => {
         status: 'down',
         temperature: 39,
         operationCount: events.reduce((sum, item) => sum + item.operations, 0),
+      }),
+    );
+  });
+
+  it('rebuilds a snapshot that was removed', async () => {
+    await apply(db, event({ operations: 1 }));
+    await apply(
+      db,
+      event({
+        eventId: 'evt-2',
+        sequence: 2,
+        operations: 4,
+        temperature: 9,
+      }),
+    );
+    await db.collection(DEVICE_STATES_COLLECTION).deleteMany({});
+
+    await apply(
+      db,
+      event({
+        eventId: 'evt-3',
+        sequence: 3,
+        operations: 1,
+        temperature: 1,
+      }),
+    );
+
+    expect(await readState()).toEqual(
+      state({
+        lastSequence: 3,
+        temperature: 1,
+        operationCount: 6,
       }),
     );
   });

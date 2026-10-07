@@ -1,7 +1,10 @@
 import { createServer, type Server, type Socket } from 'node:net';
 import {
   deviceEventSchema,
-  TELEMETRY_QUEUE,
+  PARTITION_COUNT,
+  partitionQueue,
+  queueForDevice,
+  singleActiveConsumer,
 } from '@rabbitmq-exercise/contracts';
 import type { ConfirmChannel } from 'amqplib';
 import pino, { type Logger } from 'pino';
@@ -17,7 +20,12 @@ export type IngestServer = Server & {
 };
 
 export const ensureQueue = async (channel: ConfirmChannel): Promise<void> => {
-  await channel.assertQueue(TELEMETRY_QUEUE, { durable: true });
+  for (let index = 0; index < PARTITION_COUNT; index += 1) {
+    await channel.assertQueue(partitionQueue(index), {
+      durable: true,
+      arguments: singleActiveConsumer,
+    });
+  }
 };
 
 export const buildServer = (
@@ -154,7 +162,7 @@ const publishLine = async (
   }
 
   channel.sendToQueue(
-    TELEMETRY_QUEUE,
+    queueForDevice(result.data.deviceId),
     Buffer.from(JSON.stringify(result.data)),
     {
       contentType: 'application/json',

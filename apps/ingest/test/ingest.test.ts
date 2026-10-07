@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { connect as connectNet, type Socket } from 'node:net';
 import {
-  TELEMETRY_QUEUE,
+  queueForDevice,
   type TelemetryEvent,
   telemetryEventSchema,
 } from '@rabbitmq-exercise/contracts';
@@ -19,6 +19,8 @@ import {
   listen,
   MAX_FRAME_BYTES,
 } from '../src/server';
+
+const deviceQueue = queueForDevice('device-1');
 
 const event = (eventId: string, sequence: number): TelemetryEvent => ({
   type: 'telemetry',
@@ -98,7 +100,7 @@ describe('socket ingest', () => {
     }
     port = address.port;
 
-    await channel.consume(TELEMETRY_QUEUE, (message) => {
+    await channel.consume(deviceQueue, (message) => {
       if (message === null) {
         return;
       }
@@ -111,7 +113,7 @@ describe('socket ingest', () => {
 
   beforeEach(async () => {
     received.length = 0;
-    await channel.purgeQueue(TELEMETRY_QUEUE);
+    await channel.purgeQueue(deviceQueue);
   });
 
   afterAll(async () => {

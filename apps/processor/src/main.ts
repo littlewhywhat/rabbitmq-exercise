@@ -1,8 +1,34 @@
+import { PARTITION_COUNT } from '@rabbitmq-exercise/contracts';
 import amqp from 'amqplib';
 import { MongoClient } from 'mongodb';
 import pino from 'pino';
 import { ensureIndexes } from './apply';
 import { consumeTelemetry } from './consume';
+
+const parsePartitions = (value: string | undefined): number[] => {
+  if (value === undefined || value.trim() === '') {
+    return Array.from({ length: PARTITION_COUNT }, (_, index) => index);
+  }
+
+  const indexes = value
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => Number(part));
+  if (
+    indexes.length === 0 ||
+    indexes.some(
+      (index) =>
+        !Number.isInteger(index) || index < 0 || index >= PARTITION_COUNT,
+    )
+  ) {
+    throw new Error(
+      `PARTITIONS must list indexes from 0 to ${String(PARTITION_COUNT - 1)}`,
+    );
+  }
+
+  return indexes;
+};
 
 const main = async (): Promise<void> => {
   const uri = process.env.MONGODB_URI;
@@ -22,9 +48,10 @@ const main = async (): Promise<void> => {
   await ensureIndexes(db);
   log.info({ db: databaseName }, 'indexes ready');
 
+  const partitions = parsePartitions(process.env.PARTITIONS);
   const connection = await amqp.connect(rabbitUrl);
-  const channel = await consumeTelemetry(connection, db, log);
-  log.info('consuming telemetry');
+  const channel = await consumeTelemetry(connection, db, log, partitions);
+  log.info({ partitions }, 'consuming telemetry');
 
   const shutdown = async (): Promise<void> => {
     await channel.close();
