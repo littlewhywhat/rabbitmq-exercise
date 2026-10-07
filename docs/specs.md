@@ -73,3 +73,4 @@ The emulator and ingest share long-lived TCP connections, one per device. Each m
 - [Emulator](emulator.md)
 - [Socket ingest](ingest.md)
 - [Processor](processor.md)
+- [Feedback](feedback.md)
